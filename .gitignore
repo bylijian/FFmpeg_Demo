@@ -1,0 +1,6 @@
+/
+!*.c
+!README
+!*.mp?
+!Makefile
+
