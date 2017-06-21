@@ -76,16 +76,31 @@ static int decode_write_frame(const char *outfilename, AVCodecContext *avctx,
     return 0;
 }
 
+/**
+* This demo show how to use libavcodec to decode a mpeg video,
+* then save each fram as an pgm picture.
+*/
 int main(int argc, char **argv)
 {
+    /* just two string for filename */
     const char *filename, *outfilename;
+
+    /* for decode ,wo need AVCodec and AVCodecContext. */
     const AVCodec *codec;
     AVCodecContext *c= NULL;
+
+    /* the amount for video frames */
     int frame_count;
     FILE *f;
+
+   /* the AVFrame is use to save a video Frame ,use av_frame-alloc() to create it,
+      then reset it for reuse ,at the end ,must free it */
     AVFrame *frame;
+
     uint8_t inbuf[INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
-    AVPacket avpkt;
+
+    /* AVPacket save the packet data */
+    AVPacket avpkt; 
 
     if (argc <= 2) {
         fprintf(stderr, "Usage: %s <input file> <output file>\n", argv[0]);
@@ -94,11 +109,15 @@ int main(int argc, char **argv)
     filename    = argv[1];
     outfilename = argv[2];
 
-    avcodec_register_all();
+    /* must call this to register codec(codec means coder and decoder) */
+    avcodec_register_all(); 
 
+    /* init a packet ,but not init it's data buf */
     av_init_packet(&avpkt);
 
-    /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) */
+    /* set end of buffer to 0 (this ensures that no overreading happens for damaged MPEG streams) 
+       AV_INPUT_BUFFER_PADDING_SIZE = 32 ,beacause some optimized bitstream readers read
+       32 or 64 bit at once and could read over the end */
     memset(inbuf + INBUF_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
     /* find the MPEG-1 video decoder */
@@ -108,20 +127,24 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    /* avcodec_alloc_context2 alloc AVCodecContext with AVCodec */
     c = avcodec_alloc_context3(codec);
     if (!c) {
         fprintf(stderr, "Could not allocate video codec context\n");
         exit(1);
     }
 
+    /* we do not send complete frames,so need to handle this.
+       AV_CODEC_FLAG_TRUNCATED means Input bitstream might be truncated at a random location
+       instead of only at frame boundaries. */
     if (codec->capabilities & AV_CODEC_CAP_TRUNCATED)
-        c->flags |= AV_CODEC_FLAG_TRUNCATED; // we do not send complete frames
+        c->flags |= AV_CODEC_FLAG_TRUNCATED; // 
 
     /* For some codecs, such as msmpeg4 and mpeg4, width and height
        MUST be initialized there because this information is not
        available in the bitstream. */
 
-    /* open it */
+    /* open it the codec  */
     if (avcodec_open2(c, codec, NULL) < 0) {
         fprintf(stderr, "Could not open codec\n");
         exit(1);
@@ -133,6 +156,7 @@ int main(int argc, char **argv)
         exit(1);
     }
 
+    /* use av_frame_alloc() to alloc a frame  */
     frame = av_frame_alloc();
     if (!frame) {
         fprintf(stderr, "Could not allocate video frame\n");
