@@ -29,7 +29,8 @@ EXAMPLES=       avio_dir_cmd                       \
                 scaling_video                      \
                 transcode_aac                      \
                 transcoding                        \
-
+   				decode_mp4                         \
+				simplest_ffmpeg_decoder_pure
 OBJS=$(addsuffix .o,$(EXAMPLES))
 
 # the following examples make explicit use of the math library
