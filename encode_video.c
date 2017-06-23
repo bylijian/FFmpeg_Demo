@@ -23,7 +23,7 @@
 /**
  * @file
  * video encoding with libavcodec API example
- *
+ * 
  * @example encode_video.c
  */
 
@@ -36,6 +36,10 @@
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
 
+/**
+ * To use this demo ,just ./encode_video abc libx264 ,you can use other encoder supported
+ *
+ */
 int main(int argc, char **argv)
 {
     const char *filename, *codec_name;
@@ -54,15 +58,17 @@ int main(int argc, char **argv)
     filename = argv[1];
     codec_name = argv[2];
 
+    /* must register codec by avcodec_register_all() */
     avcodec_register_all();
 
-    /* find the mpeg1video encoder */
+    /* find the encoder by name */
     codec = avcodec_find_encoder_by_name(codec_name);
     if (!codec) {
         fprintf(stderr, "Codec not found\n");
         exit(1);
     }
 
+    /* use avcodec_alloc_context3 to alloc AVCodecContext wiht AVCodec */
     c = avcodec_alloc_context3(codec);
     if (!c) {
         fprintf(stderr, "Could not allocate video codec context\n");
@@ -112,6 +118,7 @@ int main(int argc, char **argv)
     frame->width  = c->width;
     frame->height = c->height;
 
+	/* wo use frame to save data needed encode,so should creat buffer for frame */
     ret = av_frame_get_buffer(frame, 32);
     if (ret < 0) {
         fprintf(stderr, "Could not allocate the video frame data\n");
@@ -159,6 +166,7 @@ int main(int argc, char **argv)
         if (got_output) {
             printf("Write frame %3d (size=%5d)\n", i, pkt.size);
             fwrite(pkt.data, 1, pkt.size, f);
+			/* when get an encoded packer ,should use av_packet_unref() to unref the packet */
             av_packet_unref(&pkt);
         }
     }

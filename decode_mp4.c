@@ -10,7 +10,12 @@
 
 int main(int argc, char **argv){
 
-	const char *mp4File,*yuvFile;
+	const char *mp4File="short.mp4";
+	//const char *mp4File="test.mp4";
+	/* must provide correct width ,height ,so you can use 
+	 * yuvplayer.exe to play well ,yuvplayer.exe can be found in this repos
+	*/
+    const char *yuvFile="test_352x240.yuv";
 	AVCodec *codec;
     AVCodecContext *codecContext;
 	AVFrame *frame;
@@ -18,13 +23,9 @@ int main(int argc, char **argv){
 	AVCodecParserContext *pCodecParserCtx=NULL;
 
 	int first_time=1;
+	int ret=-1;
+	int got_picture=0;
 
-	if(argc<=2){
-		printf("need more argument!");
-		return -1;
-	}
-	mp4File=argv[1];
-	yuvFile=argv[2];
 	printf("Demo for decode %s to %s",mp4File,yuvFile);
 
 	avcodec_register_all();
@@ -55,8 +56,12 @@ int main(int argc, char **argv){
 	av_init_packet(&packet);
     frame=av_frame_alloc();
 
+	int readCount=0;
+
 	while(1){
 		cur_size = fread(inbuf, 1, INBUF_SIZE, infile);  
+		readCount+=cur_size;
+		printf("readCount=%d\n",readCount);
     	if (cur_size == 0)  
             break;  
         cur_ptr=inbuf;  
@@ -75,7 +80,7 @@ int main(int argc, char **argv){
                 continue;  
   
             //Some Info from AVCodecParserContext  
-            printf("[Packet]Size:%6d\t",packet.size);  
+            printf("[Packet]Size:%6d\n",packet.size);  
             switch(pCodecParserCtx->pict_type){  
                 case AV_PICTURE_TYPE_I: printf("Type:I\t");break;  
                 case AV_PICTURE_TYPE_P: printf("Type:P\t");break;  
@@ -83,17 +88,16 @@ int main(int argc, char **argv){
                 default: printf("Type:Other\t");break;  
             }  
             printf("Number:%4d\n",pCodecParserCtx->output_picture_number);  
-			int got_picture=0;
-			int ret = avcodec_decode_video2(codecContext, frame, &got_picture, &packet); 
+		    ret = avcodec_decode_video2(codecContext, frame, &got_picture, &packet); 
 			if(ret<0){
-			 printf("decode packet error");  
+			 printf("decode packet error \n");  
 			}else{
 				if(got_picture){
    					if(first_time){  
                    	 printf("\nCodec Full Name:%s\n",codecContext->codec->long_name);  
                    	 printf("width:%d\nheight:%d\n\n",codecContext->width,codecContext->height);  
                      first_time=0;  
-                }  
+                	}  
                 //Y, U, V  
 				int i=0;
                 for(i=0;i<frame->height;i++){  
@@ -113,7 +117,44 @@ int main(int argc, char **argv){
 		}
   
 	}
+	//though wo read the end of file ,it may not finish decode
+	//need flush Decoder
+    packet.data = NULL;
+    packet.size = 0;
+	while(1){
+		ret = avcodec_decode_video2(codecContext, frame, &got_picture, &packet);
+		if (ret < 0) {
+			printf("Decode Error.\n");
+			return ret;
+		}
+		if (!got_picture){
+			printf("no more frame need to flush!\n");
+			break;
+		}else {
+			//Y, U, V
+		    int i;
+			for(i=0;i<frame->height;i++){
+				fwrite(frame->data[0]+frame->linesize[0]*i,1,frame->width,fp_out);
+			}
+			for(i=0;i<frame->height/2;i++){
+				fwrite(frame->data[1]+frame->linesize[1]*i,1,frame->width/2,fp_out);
+			}
+			for(i=0;i<frame->height/2;i++){
+				fwrite(frame->data[2]+frame->linesize[2]*i,1,frame->width/2,fp_out);
+			}
 
+			printf("Flush Decoder: Succeed to decode 1 frame!\n");
+		}
+	}
+
+	/* close the file stream */
+	fclose(infile);
+	fclose(fp_out);
+
+	av_parser_close(pCodecParserCtx);
+	av_frame_free(&frame);
+	avcodec_close(codecContext);
+	avcodec_free_context(&codecContext);
 	
 	
 
